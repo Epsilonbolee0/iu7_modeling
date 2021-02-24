@@ -159,17 +159,27 @@ func Picard(to, step float64, power int) *FunctionValues {
 func main() {
 	step := 1e-3
 	limit := 4.0
+	stepCount := (int)(math.Floor(limit / step))
 
-	fmt.Println(" Euler method: ")
-	fmt.Print(ForwardEuler(limit, step).String())
-	fmt.Println(" Runge-Kutta method: ")
-	fmt.Print(RungeKutta(limit, step).String())
-	fmt.Println(" Picard (1): ")
-	fmt.Print(Picard(limit, step, 1).String())
-	fmt.Println(" Picard (2): ")
-	fmt.Print(Picard(limit, step, 2).String())
-	fmt.Println(" Picard (3): ")
-	fmt.Print(Picard(limit, step, 3).String())
-	fmt.Println(" Picard (4): ")
-	fmt.Print(Picard(limit, step, 4).String())
+	euler := ForwardEuler(limit, step)
+	runge := RungeKutta(limit, step)
+	picard1 := Picard(limit, step, 1)
+	picard2 := Picard(limit, step, 2)
+	picard3 := Picard(limit, step, 3)
+	picard4 := Picard(limit, step, 4)
+
+	fmt.Println("-------------------------------------------------------------------------------------")
+	fmt.Println("|    Шаг    |   Эйлер   |Рунге-Кутта| Пикард(1) | Пикард(2) | Пикард(3) | Пикард(4) |")
+	fmt.Println("-------------------------------------------------------------------------------------")
+
+	for i := 0; i < stepCount; i++ {
+		fmt.Printf("|%11f|%11f|%11f|%11f|%11f|%11f|%11f|\n",
+			euler.xValues[i],
+			euler.yValues[i],
+			runge.yValues[i],
+			picard1.yValues[i],
+			picard2.yValues[i],
+			picard3.yValues[i],
+			picard4.yValues[i])
+	}
 }
