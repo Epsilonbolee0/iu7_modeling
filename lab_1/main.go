@@ -60,88 +60,98 @@ func RungeKutta(to, step float64) *FunctionValues {
 	return &FunctionValues{xValues, yValues}
 }
 
-type Polynom struct {
+type Member struct {
 	Coefficient float64
 	Power       int
 }
 
-func IntegratePolynom(polynom []Polynom) []Polynom {
-	for i := 0; i < len(polynom); i++ {
-		polynom[i].Power += 1
-		polynom[i].Coefficient /= float64(polynom[i].Power)
+func (m Member) MultiplyBy(times Member) Member {
+	return Member{m.Coefficient * times.Coefficient, m.Power * times.Power}
+}
+
+func (m *Member) IncreaseBy(addition Member) {
+	m.Coefficient += addition.Coefficient
+}
+
+type Polynom struct {
+	Members []Member
+}
+
+func (p *Polynom) GetMembers() []Member {
+	return p.Members
+}
+
+func (p *Polynom) Integrate() *Polynom {
+	members := p.GetMembers()
+
+	for i := 0; i < len(members); i++ {
+		members[i].Power += 1
+		members[i].Coefficient /= float64(members[i].Power)
 	}
 
-	return polynom
+	return &Polynom{members}
 }
 
-func SquarePolynom(polynom []Polynom) []Polynom {
-	var result []Polynom
+func (p *Polynom) Square() *Polynom {
+	members := p.GetMembers()
+	var resultingMembers []Member
 
-	for i := 0; i < len(polynom); i++ {
-		for j := 0; j < len(polynom); j++ {
-			result = append(result, MultiplyMembers(polynom[i], polynom[j]))
+	for i := 0; i < len(members); i++ {
+		for j := 0; j < len(members); j++ {
+			resultingMembers = append(resultingMembers, members[i].MultiplyBy(members[j]))
 		}
 	}
 
-	return result
+	return &Polynom{resultingMembers}
 }
 
-func MergePolynoms(a, b []Polynom) []Polynom {
-	for _, member := range b {
-		exists := false
-
-		for i := len(a) - 1; i >= 0 && exists; i-- {
-			if a[i] == member {
-				a[i].Power += member.Power
-				a[i].Coefficient += member.Coefficient
-				exists = true
-			}
-		}
-
-		if !exists {
-			a = append(a, member)
-		}
-	}
-
-	return a
-}
-
-func MultiplyMembers(a, b Polynom) Polynom {
-	return Polynom{a.Coefficient * b.Coefficient, a.Power * b.Power}
-}
-
-func picardPolynom(power int) func() []Polynom {
-	if power == 1 {
-		return func() []Polynom {
-			return []Polynom{{1.0 / 3, 3}}
-		}
-	} else {
-		return func() []Polynom {
-			previousPolynom := picardPolynom(power - 1)()
-			squarePolynom := SquarePolynom(IntegratePolynom(previousPolynom))
-			return MergePolynoms(previousPolynom, squarePolynom)
-		}
-	}
-}
-
-func CountPolynom(x float64, polynom []Polynom) float64 {
+func (p *Polynom) Count(x float64) float64 {
+	members := p.GetMembers()
 	accumulator := 0.0
-	for _, member := range polynom {
+
+	for _, member := range members {
 		accumulator += member.Coefficient * math.Pow(x, float64(member.Power))
 	}
 
 	return accumulator
 }
 
-func PicardPolynom(power int) func(x float64) float64 {
-	return func(x float64) float64 {
-		return CountPolynom(x, picardPolynom(power)())
+func (p *Polynom) MergeWith(other *Polynom) *Polynom {
+	otherMembers := other.GetMembers()
+	ourMembers := p.GetMembers()
+
+	for _, member := range otherMembers {
+		existsInP := false
+
+		for i := len(ourMembers) - 1; i >= 0 && existsInP; i-- {
+			if ourMembers[i].Power == member.Power {
+				ourMembers[i].IncreaseBy(member)
+				existsInP = true
+			}
+		}
+
+		if !existsInP {
+			ourMembers = append(ourMembers, member)
+		}
+	}
+
+	return &Polynom{ourMembers}
+}
+
+func PicardPolynom(power int) *Polynom {
+	if power == 1 {
+		onlyMember := Member{1.0 / 3, 3}
+		return &Polynom{[]Member{onlyMember}}
+	} else {
+		previousPolynom := PicardPolynom(power - 1)
+		squaredPolynom := previousPolynom.Integrate().Square()
+		return previousPolynom.MergeWith(squaredPolynom)
 	}
 }
 
 func Picard(to, step float64, power int) *FunctionValues {
 	stepCount := (int)(math.Floor(to / step))
-	function := PicardPolynom(power)
+	polynom := PicardPolynom(power)
 
 	xValues := make([]float64, stepCount)
 	yValues := make([]float64, stepCount)
@@ -150,7 +160,7 @@ func Picard(to, step float64, power int) *FunctionValues {
 
 	for i := 1; i < stepCount; i++ {
 		xValues[i] = float64(i) * step
-		yValues[i] = function(xValues[i])
+		yValues[i] = polynom.Count(xValues[i])
 	}
 
 	return &FunctionValues{xValues, yValues}
@@ -158,7 +168,7 @@ func Picard(to, step float64, power int) *FunctionValues {
 
 func main() {
 	step := 1e-3
-	limit := 4.0
+	limit := 1.0
 	stepCount := (int)(math.Floor(limit / step))
 
 	euler := ForwardEuler(limit, step)
@@ -180,6 +190,7 @@ func main() {
 			picard1.yValues[i],
 			picard2.yValues[i],
 			picard3.yValues[i],
-			picard4.yValues[i])
+			picard4.yValues[i],
+		)
 	}
 }
