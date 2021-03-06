@@ -66,7 +66,7 @@ type Member struct {
 }
 
 func (m Member) MultiplyBy(times Member) Member {
-	return Member{m.Coefficient * times.Coefficient, m.Power * times.Power}
+	return Member{m.Coefficient * times.Coefficient, m.Power + times.Power}
 }
 
 func (m *Member) IncreaseBy(addition Member) {
@@ -75,6 +75,21 @@ func (m *Member) IncreaseBy(addition Member) {
 
 type Polynom struct {
 	Members []Member
+}
+
+func (p *Polynom) String() string {
+	sb := strings.Builder{}
+
+	for _, member := range p.Members[:len(p.Members)-1] {
+		buffer := fmt.Sprintf("%fx^%d + ", member.Coefficient, member.Power)
+		sb.WriteString(buffer)
+	}
+
+	lastMember := p.Members[len(p.Members)-1]
+	buffer := fmt.Sprintf("%fx^%d\n", lastMember.Coefficient, lastMember.Power)
+	sb.WriteString(buffer)
+
+	return sb.String()
 }
 
 func (p *Polynom) GetMembers() []Member {
@@ -127,6 +142,7 @@ func (p *Polynom) MergeWith(other *Polynom) *Polynom {
 			if ourMembers[i].Power == member.Power {
 				ourMembers[i].IncreaseBy(member)
 				existsInP = true
+				break
 			}
 		}
 
@@ -138,20 +154,24 @@ func (p *Polynom) MergeWith(other *Polynom) *Polynom {
 	return &Polynom{ourMembers}
 }
 
-func PicardPolynom(power int) *Polynom {
-	if power == 1 {
+func PicarPolynom(power int) *Polynom {
+	switch power {
+	case 0:
+		onlyMember := Member{1.0, 2}
+		return &Polynom{[]Member{onlyMember}}
+	case 1:
 		onlyMember := Member{1.0 / 3, 3}
 		return &Polynom{[]Member{onlyMember}}
-	} else {
-		previousPolynom := PicardPolynom(power - 1)
-		squaredPolynom := previousPolynom.Integrate().Square()
-		return previousPolynom.MergeWith(squaredPolynom)
+	default:
+		previousPolynom := PicarPolynom(power - 1)
+		squaredPolynom := previousPolynom.Square()
+		return PicarPolynom(0).MergeWith(squaredPolynom).Integrate()
 	}
 }
 
-func Picard(to, step float64, power int) *FunctionValues {
+func Picar(to, step float64, power int) *FunctionValues {
 	stepCount := (int)(math.Floor(to / step))
-	polynom := PicardPolynom(power)
+	polynom := PicarPolynom(power)
 
 	xValues := make([]float64, stepCount)
 	yValues := make([]float64, stepCount)
@@ -167,23 +187,24 @@ func Picard(to, step float64, power int) *FunctionValues {
 }
 
 func main() {
-	step := 1e-3
-	limit := 1.0
+	step := 1e-5
+	limit := 0.01
+
 	stepCount := (int)(math.Floor(limit / step))
 
 	euler := ForwardEuler(limit, step)
 	runge := RungeKutta(limit, step)
-	picard1 := Picard(limit, step, 1)
-	picard2 := Picard(limit, step, 2)
-	picard3 := Picard(limit, step, 3)
-	picard4 := Picard(limit, step, 4)
+	picard1 := Picar(limit, step, 1)
+	picard2 := Picar(limit, step, 2)
+	picard3 := Picar(limit, step, 3)
+	picard4 := Picar(limit, step, 4)
 
 	fmt.Println("-------------------------------------------------------------------------------------")
 	fmt.Println("|    Шаг    |   Эйлер   |Рунге-Кутта| Пикард(1) | Пикард(2) | Пикард(3) | Пикард(4) |")
 	fmt.Println("-------------------------------------------------------------------------------------")
 
 	for i := 0; i < stepCount; i++ {
-		fmt.Printf("|%11f|%11f|%11f|%11f|%11f|%11f|%11f|\n",
+		fmt.Printf("|%11.5f|%11.3f|%11.3f|%11.3f|%11.3f|%11.3f|%11.3f|\n",
 			euler.xValues[i],
 			euler.yValues[i],
 			runge.yValues[i],
